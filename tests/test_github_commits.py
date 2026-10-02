@@ -1,7 +1,7 @@
 import pytest
 import requests
 
-from github_commits import CommitClient, GitHubRateLimitError, normalize_commit
+from github_commits import CommitClient, GitHubRateLimitError, main, normalize_commit
 
 
 SAMPLE = {
@@ -156,3 +156,29 @@ def test_unrelated_403_is_not_treated_as_rate_limit():
         client.fetch_page(1, 10)
     assert sleeps == []
     assert len(session.calls) == 1
+
+
+def test_main_prints_json_lines(capsys, monkeypatch):
+    def fake_fetch(self, pages=5, per_page=100):
+        assert (pages, per_page) == (2, 10)
+        return [normalize_commit(SAMPLE)]
+
+    monkeypatch.setattr(CommitClient, "fetch_commits", fake_fetch)
+    code = main(["torvalds", "linux", "--pages", "2", "--per-page", "10"])
+    out = capsys.readouterr()
+    assert code == 0
+    assert '"sha": "abc123"' in out.out
+    assert "1 commits" in out.err
+
+
+def test_main_exits_quietly_on_rate_limit(capsys, monkeypatch):
+    def fake_fetch(self, pages=5, per_page=100):
+        raise GitHubRateLimitError("GitHub rate limit hit.", reset_at=123)
+
+    monkeypatch.setattr(CommitClient, "fetch_commits", fake_fetch)
+    code = main(["torvalds", "linux"])
+    out = capsys.readouterr()
+    assert code == 1
+    assert "rate limit" in out.err
+    assert "123" in out.err
+    assert out.out == ""

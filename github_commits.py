@@ -1,5 +1,8 @@
 """Fetch commits from the public GitHub REST API."""
 
+import argparse
+import json
+import sys
 import time
 
 import requests
@@ -168,3 +171,32 @@ class CommitClient:
             if len(batch) < per_page:
                 break
         return commits
+
+
+def main(argv=None):
+    parser = argparse.ArgumentParser(
+        description="Pull normalized commits from a public GitHub repo."
+    )
+    parser.add_argument("owner")
+    parser.add_argument("repo")
+    parser.add_argument("--pages", type=int, default=5)
+    parser.add_argument("--per-page", type=int, default=100)
+    args = parser.parse_args(argv)
+
+    client = CommitClient(args.owner, args.repo)
+    try:
+        commits = client.fetch_commits(pages=args.pages, per_page=args.per_page)
+    except GitHubRateLimitError as exc:
+        print(exc, file=sys.stderr)
+        if exc.reset_at is not None:
+            print(f"resets at unix {exc.reset_at}", file=sys.stderr)
+        return 1
+
+    for commit in commits:
+        print(json.dumps(commit, ensure_ascii=False))
+    print(f"{len(commits)} commits", file=sys.stderr)
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
