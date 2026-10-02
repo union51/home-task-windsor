@@ -172,8 +172,18 @@ class CommitClient:
                 break
         return commits
 
+        
+def _force_utf8(stream):
+    if hasattr(stream, "reconfigure"):
+        try:
+            stream.reconfigure(encoding="utf-8", errors="replace")
+        except (OSError, ValueError):
+            pass
+
 
 def main(argv=None):
+    _force_utf8(sys.stdout)
+    _force_utf8(sys.stderr)
     parser = argparse.ArgumentParser(
         description="Pull normalized commits from a public GitHub repo."
     )
