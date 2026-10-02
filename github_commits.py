@@ -56,3 +56,17 @@ class CommitClient:
         if not isinstance(data, list):
             raise ValueError("expected a list of commits")
         return [normalize_commit(item) for item in data]
+        
+    def fetch_commits(self, pages=5, per_page=100):
+        if pages < 1:
+            return []
+        per_page = clamp_per_page(per_page)
+        commits = []
+        for page in range(1, pages + 1):
+            batch = self.fetch_page(page, per_page)
+            if not batch:
+                break
+            commits.extend(batch)
+            if len(batch) < per_page:
+                break
+        return commits
